@@ -231,35 +231,21 @@ function go(v){document.querySelectorAll('.view').forEach(s=>s.classList.toggle(
 /* ---------- PAINEL ---------- */
 function renderPainel(){
   const recP=catSpent('personal'),recC=catSpent('general'),gastos=recP+recC;
-  const planTot=S.plans.reduce((a,p)=>a+(+p.amount||0),0),planPaid=planSum(true),planOpen=planSum(false);
-  const replTot=S.repl.reduce((a,r)=>a+(+r.amount||0),0);
-  const conv=S.budMode!=='manual';
-  let h=`<div class="ledger"><div class="lrow hero"><span>Saldo previsto</span><b id="pvSaldo"></b></div><div class="lrow"><span>Orçamento${conv?' (do planejado)':''}</span><b id="pvOrc"></b></div><div class="lrow"><span>Total gasto</span><b>${moneyUsd(gastos)}</b></div><div class="lrow sub"><span>Pessoais</span><b>${moneyUsd(recP)}</b></div><div class="lrow sub"><span>Comuns</span><b>${moneyUsd(recC)}</b></div></div>`;
-  h+=`<div class="seg" style="margin-top:10px"><button class="${conv?'on':''}" onclick="setBudMode('conv')">Pela cotação</button><button class="${conv?'':'on'}" onclick="setBudMode('manual')">Manual US$</button></div>`;
-  if(conv){
-    h+=`<label style="margin-top:8px">Cotação do dólar (R$ por US$)</label><div class="money-wrap brl"><input id="cotIn" type="text" inputmode="numeric" placeholder="5,40" value="${S.cot>0?S.cot.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):''}" oninput="onCot(this)"></div><div class="note">Converte o total planejado (${money(planTot)}) ÷ cotação.</div>`;
-  }else{
-    h+=`<label style="margin-top:8px">Orçamento da viagem (US$)</label><div class="money-wrap usd"><input id="budIn" type="text" inputmode="numeric" placeholder="0.00" value="${S.budUsd>0?S.budUsd.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):''}" oninput="onBud(this)"></div>`;
-  }
-  const saldoBr=replTot-planTot;
-  h+=`<div class="banner" style="margin-top:18px"><span class="dot"></span> Planejamento (R$)</div><div class="ledger"><div class="lrow hero"><span>Saldo em reais</span><b class="${saldoBr<0?'neg':''}">${money(saldoBr)}</b></div><div class="lrow"><span>Reposição</span><b>${money(replTot)}</b></div><div class="lrow"><span>Gastos planejados</span><b>${money(planTot)}</b></div><div class="lrow sub"><span>Já pago</span><b>${money(planPaid)}</b></div><div class="lrow sub"><span>Em aberto</span><b>${money(planOpen)}</b></div></div>`;
+  let h=`<div class="ledger"><div class="lrow hero"><span>Saldo previsto</span><b id="pvSaldo"></b></div><div class="lrow"><span>Orçamento</span><b id="pvOrc"></b></div><div class="lrow"><span>Total gasto</span><b>${moneyUsd(gastos)}</b></div><div class="lrow sub"><span>Pessoais</span><b>${moneyUsd(recP)}</b></div><div class="lrow sub"><span>Comuns</span><b>${moneyUsd(recC)}</b></div></div>`;
+  h+=`<label style="margin-top:10px">Orçamento total da viagem (US$)</label><div class="money-wrap usd"><input id="budIn" type="text" inputmode="decimal" placeholder="Ex.: 4000" value="${S.budUsd>0?S.budUsd.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):''}" oninput="onBud(this)"></div><div class="note">Quantos dólares você terá para gastar na viagem. O planejamento em R$ fica na aba Planejado.</div>`;
   document.getElementById('painelBox').innerHTML=h;
   refreshUsd();
 }
 function refreshUsd(){
   const sEl=document.getElementById('pvSaldo');if(!sEl)return;
   const oEl=document.getElementById('pvOrc');
-  const conv=S.budMode!=='manual';
   const gastos=catSpent('personal')+catSpent('general');
-  const planTot=S.plans.reduce((a,p)=>a+(+p.amount||0),0);
-  const budSet=conv?S.cot>0:S.budUsd>0;
-  const budUsd=conv?(S.cot>0?planTot/S.cot:0):(S.budUsd||0);
-  if(budSet){const saldo=budUsd-gastos;sEl.textContent=moneyUsd(saldo);sEl.className=saldo<0?'neg':'';sEl.removeAttribute('style');if(oEl)oEl.textContent=moneyUsd(budUsd);}
+  const budUsd=S.budUsd||0;
+  if(budUsd>0){const saldo=budUsd-gastos;sEl.textContent=moneyUsd(saldo);sEl.className=saldo<0?'neg':'';sEl.removeAttribute('style');if(oEl)oEl.textContent=moneyUsd(budUsd);}
   else{sEl.textContent='defina abaixo ↓';sEl.className='';sEl.setAttribute('style','font-size:13px;color:var(--steel);font-weight:600');if(oEl)oEl.textContent='—';}
 }
-function setBudMode(m){S.budMode=m;save();renderPainel();}
-function onCot(el){maskMoney(el,false);S.cot=toNumber(el.value)||0;save();refreshUsd();}
-function onBud(el){maskMoney(el,true);S.budUsd=toNumber(el.value)||0;save();refreshUsd();}
+function pUsd(v){v=(''+v).replace(/[^\d.,]/g,'').replace(/,/g,'');return parseFloat(v)||0;}
+function onBud(el){S.budUsd=pUsd(el.value);save();refreshUsd();}
 
 /* ---------- FOTO + OCR (via internet, com fallback manual) ---------- */
 let scanThumb=null, workerReady=null, tessLoading=null;
