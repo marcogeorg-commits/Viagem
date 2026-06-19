@@ -355,17 +355,28 @@ function parseStatement(text){
   const lines=(text||'').split(/\n+/).map(l=>l.trim()).filter(Boolean);
   const reMoneyG=/\d{1,3}(?:[.,]\d{3})*[.,]\d{2}|\d+[.,]\d{2}/g;
   const reDate=/\b(\d{1,2})[\/.\-](\d{1,2})(?:[\/.\-](\d{2,4}))?\b/;
-  const out=[];
-  for(const l of lines){
+  const hasMoney=l=>reMoneyG.test(l);
+  const isHeader=l=>reDate.test(l)&&!hasMoney(l)&&l.length<=34;
+  const isType=l=>/compra no cart|transfer[eê]?ncia|pagamento|pix|d[eé]bito|cr[eé]dito|saque|purchase|payment|cart[aã£éo]+ global/i.test(l);
+  const cleanMerch=s=>s.replace(/^[^A-Za-zÀ-ÿ0-9]+/,'').replace(/[^A-Za-zÀ-ÿ0-9 #&'\/.-]/g,' ').replace(/\s{2,}/g,' ').trim();
+  const cleanType=s=>s.replace(reMoneyG,' ').replace(/[-–—]?\s*US?\$?/gi,' ').replace(/\b(compra no cart[aã£éo]+ global|transfer[eê]?ncia (recebida|enviada)|pagamento|saque)\b/gi,' ').replace(/[^A-Za-zÀ-ÿ0-9 #&'\/-]/g,' ').replace(/\s{2,}/g,' ').trim();
+  const out=[];let curDate='';
+  for(let i=0;i<lines.length;i++){
+    const l=lines[i];
+    if(isHeader(l)){const dm=l.match(reDate);if(dm)curDate=parseDateGuess(dm);continue;}
     if(/saldo|balance|available|limit|limite|fatura|previous|payment due|minimum|pagamento m[ií]nimo|^total\b|encerramento|vencimento|due date/i.test(l))continue;
     const monies=l.match(reMoneyG);if(!monies)continue;
     const amount=toNumber(monies[monies.length-1]);
     if(isNaN(amount)||amount<=0||amount>100000)continue;
-    const dm=l.match(reDate);const date=dm?parseDateGuess(dm):'';
-    let desc=l;if(dm)desc=desc.replace(dm[0],' ');
-    desc=desc.replace(reMoneyG,' ').replace(/[^A-Za-zÀ-ÿ0-9 &.'\/-]/g,' ').replace(/\s{2,}/g,' ').trim();
-    out.push({on:true,date:date||new Date().toISOString().slice(0,10),desc:(desc||'Lançamento').slice(0,40),amount,category:'personal'});
-    if(out.length>=60)break;
+    const nxt=lines[i+1];
+    const merchNext=nxt&&!hasMoney(nxt)&&!isHeader(nxt)&&(nxt.match(/[A-Za-zÀ-ÿ]/g)||[]).length>=2;
+    // entrada de dinheiro (não é gasto) -> pula, consumindo a linha do remetente
+    if(/recebid|estorno|reembolso|devolu|dep[oó]sito|cashback/i.test(l)){if(merchNext)i++;continue;}
+    let desc=merchNext?cleanMerch(nxt):cleanType(l);
+    if(merchNext)i++;
+    if(!desc)desc=cleanType(l)||'Lançamento';
+    out.push({on:true,date:curDate||new Date().toISOString().slice(0,10),desc:desc.slice(0,40),amount,category:'personal'});
+    if(out.length>=80)break;
   }
   return out;
 }
